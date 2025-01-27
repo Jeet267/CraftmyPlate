@@ -1,44 +1,56 @@
 const Order = require('../models/Order');
 const Menu = require('../models/Menu');
 
-// Create a new order
-exports.createOrder = async (req, res) => {
-  try {
-    const { items } = req.body;
 
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ message: 'Invalid order items' });
+exports.placeOrder = async (req, res) => {
+  const { items } = req.body; 
+  
+  if (!items || items.length === 0) {
+    return res.status(400).json({ message: 'Order must contain at least one item' });
+  }
+
+  try {
+
+    let totalAmount = 0;
+    for (let item of items) {
+      const menuItem = await Menu.findById(item.menuItem);
+      if (!menuItem || !menuItem.availability) {
+        return res.status(404).json({ message: `Menu item ${item.menuItem} not found or unavailable` });
+      }
+      totalAmount += menuItem.price * item.quantity;
     }
 
-    const menuItems = await Menu.find({
-      _id: { $in: items.map(item => item.menuItem) }
-    });
-
-    const totalAmount = items.reduce((total, orderItem) => {
-      const menuItem = menuItems.find(m => m._id.toString() === orderItem.menuItem);
-      return total + (menuItem.price * orderItem.quantity);
-    }, 0);
 
     const newOrder = new Order({
-      userId: req.user.id,
+      username: req.user, 
       items,
-      totalAmount
+      totalAmount,
     });
 
     await newOrder.save();
-    res.status(201).json(newOrder);
+
+    res.status(201).json({
+      message: 'Order placed successfully',
+      order: newOrder,
+    });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
-// Get all orders for the authenticated user
+
 exports.getOrders = async (req, res) => {
   try {
-    const orders = await Order.find({ userId: req.user.id })
-      .populate('items.menuItem');
-    res.json(orders);
+    const orders = await Order.find({ username: req.user }).populate('items.menuItem', 'name price');
+
+    if (orders.length === 0) {
+      return res.status(404).json({ message: 'No orders found for this user' });
+    }
+
+    res.status(200).json(orders);
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };

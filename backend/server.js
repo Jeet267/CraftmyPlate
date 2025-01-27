@@ -18,7 +18,7 @@ connectDB();
 
 app.use('/api/auth', authRoutes);
 app.use('/api/menu', menuRoutes);
-app.use('/api/orders', orderRoutes);
+app.use('/api', orderRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
